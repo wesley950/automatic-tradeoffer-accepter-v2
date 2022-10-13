@@ -12,6 +12,16 @@ let manager = new TradeOfferManager({
   pollInterval: Number.parseInt(process.env.POLLING_INTERVAL || 10) * 1000,
 });
 
+console.log(
+  '[WARNING] After this message all console output will be redirected to the file log.txt for better auditing. This file gets overwritten every time a new session is started so remember to back it up.'
+);
+
+let logAccess = FS.createWriteStream('log.txt');
+process.stdout.write = process.stderr.write = logAccess.write.bind(logAccess);
+
+console.log(new Date().toString());
+console.log(`Starting new session`);
+
 const communityLogin = (logOnOptions) => {
   community.login(logOnOptions, (err, sessionID, cookies, steamguard) => {
     if (err) {
@@ -71,6 +81,17 @@ community.on('sessionExpired', (err) => {
       process.env.PASSWORD ||
       '[ERROR] please specify an PASSWORD in your .env file!',
   };
+
+  if (FS.existsSync('steamguard.txt')) {
+    logOnOptions.steamguard =
+      FS.readFileSync('steamguard.txt').toString('utf8');
+  }
+
+  if (FS.existsSync('polldata.json')) {
+    manager.pollData = JSON.parse(
+      FS.readFileSync('polldata.json').toString('utf8')
+    );
+  }
 
   communityLogin(logOnOptions);
 });
