@@ -31,7 +31,7 @@ let logOnOptions = {
     '[ERROR] please specify an PASSWORD in your .env file!',
   twoFactorCode:
     process.env.INITIAL_TOTP ||
-    '[ERROR] please specify an INITIAL_TOTP in your .env file!',
+    '[ERROR] please specify an INITIAL_TOTP in your .env file or directly in your environment variables!',
 };
 
 if (FS.existsSync('steamguard.txt')) {
