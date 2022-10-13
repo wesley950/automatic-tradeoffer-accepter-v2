@@ -22,12 +22,37 @@ process.stdout.write = process.stderr.write = logAccess.write.bind(logAccess);
 console.log(new Date().toString());
 console.log(`Starting new session`);
 
-const communityLogin = (logOnOptions) => {
-  community.login(logOnOptions, (err, sessionID, cookies, steamguard) => {
+let logOnOptions = {
+  accountName:
+    process.env.ACCOUNT_NAME ||
+    '[ERROR] please specify an ACCOUNT_NAME in your .env file!',
+  password:
+    process.env.PASSWORD ||
+    '[ERROR] please specify an PASSWORD in your .env file!',
+  twoFactorCode:
+    process.env.INITIAL_TOTP ||
+    '[ERROR] please specify an INITIAL_TOTP in your .env file!',
+};
+
+if (FS.existsSync('steamguard.txt')) {
+  logOnOptions.steamguard = FS.readFileSync('steamguard.txt').toString('utf8');
+}
+
+if (FS.existsSync('polldata.json')) {
+  manager.pollData = JSON.parse(
+    FS.readFileSync('polldata.json').toString('utf8')
+  );
+}
+
+community.login(
+  logOnOptions,
+  (err, sessionID, cookies, steamguard, oAuthToken) => {
     if (err) {
       console.log('Steam login fail: ' + err.message);
       process.exit(1);
     }
+
+    logOnOptions.oAuthToken = oAuthToken;
 
     FS.writeFileSync('steamguard.txt', steamguard);
 
@@ -40,60 +65,27 @@ const communityLogin = (logOnOptions) => {
       }
     });
     community.setCookies(cookies);
-  });
-};
-
-process.stdin.on('data', (data) => {
-  let totpCode = data.toString();
-
-  let logOnOptions = {
-    accountName:
-      process.env.ACCOUNT_NAME ||
-      '[ERROR] please specify an ACCOUNT_NAME in your .env file!',
-    password:
-      process.env.PASSWORD ||
-      '[ERROR] please specify an PASSWORD in your .env file!',
-    twoFactorCode: totpCode,
-  };
-
-  if (FS.existsSync('steamguard.txt')) {
-    logOnOptions.steamguard =
-      FS.readFileSync('steamguard.txt').toString('utf8');
   }
-
-  if (FS.existsSync('polldata.json')) {
-    manager.pollData = JSON.parse(
-      FS.readFileSync('polldata.json').toString('utf8')
-    );
-  }
-
-  communityLogin(logOnOptions);
-});
+);
 
 community.on('sessionExpired', (err) => {
   console.log(`Session expired. Relogging...`);
 
-  let logOnOptions = {
-    accountName:
-      process.env.ACCOUNT_NAME ||
-      '[ERROR] please specify an ACCOUNT_NAME in your .env file!',
-    password:
-      process.env.PASSWORD ||
-      '[ERROR] please specify an PASSWORD in your .env file!',
-  };
+  community.oAuthLogin(
+    logOnOptions.steamguard,
+    logOnOptions.oAuthToken,
+    (err, loggedIn) => {
+      if (err) {
+        console.log(err);
+      }
 
-  if (FS.existsSync('steamguard.txt')) {
-    logOnOptions.steamguard =
-      FS.readFileSync('steamguard.txt').toString('utf8');
-  }
-
-  if (FS.existsSync('polldata.json')) {
-    manager.pollData = JSON.parse(
-      FS.readFileSync('polldata.json').toString('utf8')
-    );
-  }
-
-  communityLogin(logOnOptions);
+      if (loggedIn) {
+        console.log('You are logged in.');
+      } else {
+        console.log('You are NOT logged in.');
+      }
+    }
+  );
 });
 
 manager.on('newOffer', (offer) => {
